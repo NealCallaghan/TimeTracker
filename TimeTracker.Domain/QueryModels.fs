@@ -14,6 +14,3 @@ module QueryModels =
         Password: string
     }
 
-    //[<CLIMutable>]
-    type TokenString = TokenString of string
-

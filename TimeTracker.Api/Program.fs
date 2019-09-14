@@ -9,6 +9,7 @@ open Microsoft.Extensions.Logging
 open Microsoft.Extensions.DependencyInjection
 open Giraffe
 open TimeTracker.Domain.QueryModels
+open TimeTracker.Services.LoginApi
 
 // ---------------------------------
 // Models
@@ -50,6 +51,14 @@ module Views =
 // Web app
 // ---------------------------------
 
+let resultToHttpResponse re : HttpHandler =
+    fun next ctx ->
+    let responseFn =
+        match re with
+        | Ok ok -> json ok |> Successful.ok
+        | Error e -> json e
+    responseFn next ctx
+
 let indexHandler (name : string) =
     let greetings = sprintf "Hello %s, from Giraffe!" name
     let model     = { Text = greetings }
@@ -65,7 +74,7 @@ let webApp =
             ]
         POST >=>
         choose [
-            route "/Login" >=> bindJson<UserLoginModel> (fun l -> json l) //(fun loginModel -> loginUser(loginModel) |> resultToHttpResponse)// |> resultToHttpResponseAsync)    
+            route "/Login" >=> bindJson<UserLoginModel> (fun loginModel -> loginUser(loginModel) |> resultToHttpResponse)// |> resultToHttpResponseAsync)    
         ]
         setStatusCode 404 >=> text "Not Found" ]
 

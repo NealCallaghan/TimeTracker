@@ -1,16 +1,8 @@
 ﻿namespace TimeTracker.Common
 
-
-
 module CommonTypes =
     open System.Linq
     open Errors
-
-    [<CLIMutable>]
-    type public UserLoginModel = {
-        UserName: string
-        Password: string
-    }
 
     type String50 private (value:string) =
         member x.Value = value

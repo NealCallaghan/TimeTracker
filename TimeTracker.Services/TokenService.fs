@@ -26,7 +26,7 @@ module TokenService =
                            claims = claims, 
                            expires = tokenSettings.TokenExpiry, 
                            signingCredentials = tokenSettings.SigningCredentials)
-        JwtSecurityTokenHandler().WriteToken tokenString |> TokenString |> Result.Ok
+        JwtSecurityTokenHandler().WriteToken tokenString |> Result.Ok
 
         
         

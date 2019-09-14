@@ -11,7 +11,7 @@ module Workflow =
     
     type ValidateUserLoginModel = UserLoginModel           -> Result<UserLogin, Error>
     type ValidateExistingUser   = Result<UserLogin, Error> -> Result<User, Error>
-    type ValidateToken          = Result<User, Error>      -> Result<TokenString, Error>
+    type ValidateToken          = Result<User, Error>      -> Result<string, Error>
 
     let private (|ModelIsValid|EmailError|PasswordError|BothInError|) input =
         match input with
