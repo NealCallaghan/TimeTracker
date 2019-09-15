@@ -10,22 +10,25 @@ module TokenService =
         let email = match userEmail with UserEmail email -> email
         [Claim(JwtRegisteredClaimNames.Email, email)]
 
-    let permissionToClaim (permissionName:PermissionName) =
+    let permissionToClaim (issuer:string) (permissionName:PermissionName) =
         let permission = match permissionName with PermissionName permission -> permission
-        Claim(ClaimTypes.Name, permission, ClaimValueTypes.String, "TimeTracker.api")
+        Claim(ClaimTypes.Name, permission, ClaimValueTypes.String, issuer)
 
-    let getClaimsForUser (userGroups:UserGroups) =
+    let getClaimsForUser (userGroups:UserGroups) permissionToClaimFunc =
         userGroups |> List.collect(fun x -> x.UserGroupPermissions)
                    |> List.map(fun x -> x.PermissionName)
                    |> List.distinct
-                   |> List.map(permissionToClaim)
+                   |> List.map(permissionToClaimFunc)
     
     let getLoginToken (user:User) =
-        let claims = List.concat([getClaimsForUser user.UserGroups;userEmailClaim user.UserEmail])
+        let tokenSettings = AppConfiguration.getTokenSettings
+        let permToClaimFunc = permissionToClaim tokenSettings.TokenIssuer
+        let claims = List.concat([getClaimsForUser user.UserGroups permToClaimFunc;
+                                  userEmailClaim user.UserEmail])
         let tokenSettings = AppConfiguration.getTokenSettings
         let tokenString = JwtSecurityToken( 
-                           issuer = "TimeTracker.api", 
-                           audience = "TimeTrackerUsers", 
+                           issuer = tokenSettings.TokenIssuer, 
+                           audience = tokenSettings.TokenAudience, 
                            claims = claims,
                            expires = tokenSettings.TokenExpiry, 
                            signingCredentials = tokenSettings.SigningCredentials)

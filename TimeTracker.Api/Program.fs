@@ -61,11 +61,22 @@ type SimpleClaim = { Type: string; Value: string }
 let authorize =
     requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme)
 
+let getType =
+    fun() ->
+    async {
+        return "someType"
+    }
+
 let showClaims =
-    fun (next : HttpFunc) (ctx : HttpContext) ->
-        let claims = ctx.User.Claims        
-        let simpleClaims = Seq.map (fun (i : Claim) -> {Type = i.Type; Value = i.Value}) claims
-        json simpleClaims next ctx
+    fun (func: unit -> Async<string>) (next : HttpFunc) (ctx : HttpContext) ->
+        task {
+            let claims = ctx.User.Claims 
+            let! s = func()
+            let simpleClaims = Seq.map (fun (i : Claim) -> {Type = s; Value = i.Value}) claims
+            return! json simpleClaims next ctx
+        }
+        
+
 
 //let resultToHttpResponseAsync asyncWorkflow : HttpHandler =
 //    fun next ctx ->
@@ -92,6 +103,16 @@ let indexHandler (name : string) =
     let view      = Views.index model
     htmlView view
 
+let indexHandlerAsync (name : string) =
+    task {
+        let greetings = sprintf "Hello %s, from Giraffe!" name
+        let model     = { Text = greetings }
+        let view      = Views.index model
+        return htmlView view
+        }
+
+let bindJsonForRoute<'a> r f = routeCi r >=> bindJson<'a> f
+
 //let handleLogin (login : UserLoginModel) =
 //    async {
 //        loginUser(login) |> Async.Start
@@ -104,11 +125,12 @@ let webApp =
             choose [
                 route "/" >=> indexHandler "world"
                 routef "/hello/%s" indexHandler
-                route "/Claims" >=> authorize >=> showClaims
+                route "/Claims" >=> authorize >=> showClaims getType
             ]
         POST >=>
             choose [
-                route "/Login" >=> bindJson<UserLoginModel> (fun loginModel -> loginUser(loginModel) |> resultToHttpResponse)// |> resultToHttpResponseAsync)    
+                bindJsonForRoute "/Login" 
+                    (fun loginModel -> loginUser(loginModel) |> resultToHttpResponse)  
             ]
         setStatusCode 404 >=> text "Not Found" ]
 
