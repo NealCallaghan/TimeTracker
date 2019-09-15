@@ -10,6 +10,12 @@ open Microsoft.Extensions.DependencyInjection
 open Giraffe
 open TimeTracker.Domain.QueryModels
 open TimeTracker.Services.LoginApi
+open FSharp.Control.Tasks
+open Microsoft.AspNetCore.Authentication.JwtBearer
+open Microsoft.AspNetCore.Http
+open System.Security.Claims
+open Microsoft.IdentityModel.Tokens
+open TimeTracker.Services.AppConfiguration
 
 // ---------------------------------
 // Models
@@ -50,6 +56,27 @@ module Views =
 // ---------------------------------
 // Web app
 // ---------------------------------
+type SimpleClaim = { Type: string; Value: string }
+
+let authorize =
+    requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme)
+
+let showClaims =
+    fun (next : HttpFunc) (ctx : HttpContext) ->
+        let claims = ctx.User.Claims        
+        let simpleClaims = Seq.map (fun (i : Claim) -> {Type = i.Type; Value = i.Value}) claims
+        json simpleClaims next ctx
+
+//let resultToHttpResponseAsync asyncWorkflow : HttpHandler =
+//    fun next ctx ->
+//    task {
+//        let! result = asyncWorkflow |> Async.StartAsTask
+//        let responseFn =
+//            match result with
+//            | Ok ok -> json ok |> Successful.ok
+//            | Error e -> json e
+//        return! responseFn next ctx
+//    }
 
 let resultToHttpResponse re : HttpHandler =
     fun next ctx ->
@@ -65,17 +92,24 @@ let indexHandler (name : string) =
     let view      = Views.index model
     htmlView view
 
+//let handleLogin (login : UserLoginModel) =
+//    async {
+//        loginUser(login) |> Async.Start
+//        return ""
+//    }
+
 let webApp =
     choose [
         GET >=>
             choose [
                 route "/" >=> indexHandler "world"
                 routef "/hello/%s" indexHandler
+                route "/Claims" >=> authorize >=> showClaims
             ]
         POST >=>
-        choose [
-            route "/Login" >=> bindJson<UserLoginModel> (fun loginModel -> loginUser(loginModel) |> resultToHttpResponse)// |> resultToHttpResponseAsync)    
-        ]
+            choose [
+                route "/Login" >=> bindJson<UserLoginModel> (fun loginModel -> loginUser(loginModel) |> resultToHttpResponse)// |> resultToHttpResponseAsync)    
+            ]
         setStatusCode 404 >=> text "Not Found" ]
 
 // ---------------------------------
@@ -101,14 +135,29 @@ let configureApp (app : IApplicationBuilder) =
     (match env.IsDevelopment() with
     | true  -> app.UseDeveloperExceptionPage()
     | false -> app.UseGiraffeErrorHandler errorHandler)
+        .UseAuthentication()
         .UseHttpsRedirection()
         .UseCors(configureCors)
         .UseStaticFiles()
         .UseGiraffe(webApp)
 
+let jwtBearerOptions (cfg : JwtBearerOptions) =
+    let settings = getTokenSettings
+    cfg.IncludeErrorDetails <- true
+    cfg.TokenValidationParameters <- TokenValidationParameters (
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = settings.TokenIssuer,
+        ValidAudience = settings.TokenAudience,
+        IssuerSigningKey = settings.SigningCredentials.Key
+    )
+
 let configureServices (services : IServiceCollection) =
     services.AddCors()    |> ignore
-    services.AddGiraffe() |> ignore
+    services.AddGiraffe()
+            .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(Action<JwtBearerOptions> jwtBearerOptions) |> ignore    
 
 let configureLogging (builder : ILoggingBuilder) =
     builder.AddFilter(fun l -> l.Equals LogLevel.Error)

@@ -22,28 +22,33 @@ module AppConfiguration =
     let GetTimeTrackerDatabase =
         buildConfig() |> getMySqlRepositorySettings |> getTimeTrackerContext
 
-
     type TokenSettings = {
         SigningCredentials: SigningCredentials
         TokenExpiry: Nullable<DateTime>
+        TokenIssuer: string
+        TokenAudience: string
     }
 
-    let private getTokenExpiry(config: IConfigurationRoot) =
-        let tokenExpiry = config.Item("TokenExpiryDays")
-        let ti = DateTime.Now.AddDays(Double.Parse(tokenExpiry))
+    let private getTokenAppSettings(config:IConfigurationRoot) =
+        config.Item("TokenKey"), 
+        config.Item("TokenExpiryDays"),
+        config.Item("TokenIssuer"),
+        config.Item("TokenAudience")
+
+    let private getTokenExpiry(expiryDays:string) =
+        let ti = DateTime.Now.AddDays(Double.Parse(expiryDays))
         new Nullable<DateTime>(ti)
 
-    let private getSecretTokenKey(config: IConfigurationRoot) =
-        config.Item("TokenKey")
-
-    let private getSigningCredentials(config: IConfigurationRoot) =
-        let tokenKey = config |> getSecretTokenKey
+    let private getSigningCredentials(tokenKey:string) =
         let key = SymmetricSecurityKey(Encoding.UTF8.GetBytes(tokenKey))
         SigningCredentials(key, SecurityAlgorithms.HmacSha256Signature)
 
     let getTokenSettings =
         let configuration = buildConfig()
-        { SigningCredentials = getSigningCredentials(configuration);
-          TokenExpiry = getTokenExpiry(configuration)}
+        let (key, expiryDays, issuer, audience) = getTokenAppSettings(configuration)
+        { SigningCredentials = getSigningCredentials(key);
+          TokenExpiry = getTokenExpiry(expiryDays);
+          TokenIssuer = issuer;
+          TokenAudience = audience }
 
 

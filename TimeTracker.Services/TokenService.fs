@@ -3,9 +3,12 @@
 open System.Security.Claims
 open System.IdentityModel.Tokens.Jwt
 open TimeTracker.Domain.TimeTrackerDomain
-open TimeTracker.Domain.QueryModels
 
 module TokenService =    
+    
+    let userEmailClaim (userEmail:UserEmail) =
+        let email = match userEmail with UserEmail email -> email
+        [Claim(JwtRegisteredClaimNames.Email, email)]
 
     let permissionToClaim (permissionName:PermissionName) =
         let permission = match permissionName with PermissionName permission -> permission
@@ -18,12 +21,12 @@ module TokenService =
                    |> List.map(permissionToClaim)
     
     let getLoginToken (user:User) =
-        let claims = getClaimsForUser user.UserGroups
+        let claims = List.concat([getClaimsForUser user.UserGroups;userEmailClaim user.UserEmail])
         let tokenSettings = AppConfiguration.getTokenSettings
         let tokenString = JwtSecurityToken( 
                            issuer = "TimeTracker.api", 
                            audience = "TimeTrackerUsers", 
-                           claims = claims, 
+                           claims = claims,
                            expires = tokenSettings.TokenExpiry, 
                            signingCredentials = tokenSettings.SigningCredentials)
         JwtSecurityTokenHandler().WriteToken tokenString |> Result.Ok
