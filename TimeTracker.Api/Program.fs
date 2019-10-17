@@ -72,7 +72,7 @@ let showClaims =
         task {
             let claims = ctx.User.Claims 
             let! s = func()
-            let simpleClaims = Seq.map (fun (i : Claim) -> {Type = s; Value = i.Value}) claims
+            let simpleClaims = Seq.map (fun (i : Claim) -> {Type = i.Type; Value = i.Value}) claims
             return! json simpleClaims next ctx
         }
         
